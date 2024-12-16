@@ -1,145 +1,166 @@
 'use client';
 
-import { useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAction } from 'next-safe-action/hooks';
-import { toast } from 'sonner';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 import { T } from '@/components/ui/Typography';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMigration } from '@/hooks/useMigration';
+import { usePostHog } from 'posthog-js/react';
+import { useEffect, useState } from 'react';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { insertPrivateItemAction } from '@/data/user/privateItems';
-
-const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().min(1, 'Description is required'),
-});
-
-type FormData = z.infer<typeof formSchema>;
-
-const formVariants = {
-  hidden: { opacity: 0, y: 50 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
-const inputVariants = {
-  hidden: { opacity: 0, x: -50 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
-};
+  migrationType,
+  useMigrationContext,
+} from '../../../../../contexts/MigrationContext';
 
 export const ClientPage: React.FC = () => {
-  const router = useRouter();
-  const toastRef = useRef<string | number | undefined>(undefined);
+  const [showAlert, setShowAlert] = useState(false);
+  const { getUserFullMigrationsPending } = useMigration();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: 'onChange',
-  });
-
-  const { execute, status } = useAction(insertPrivateItemAction, {
-    onExecute: () => {
-      toastRef.current = toast.loading('Creating item');
+  const migrationOptions: OptionCardProps[] = [
+    {
+      title: 'Demo migration',
+      description:
+        'Migrate a small subset of data to test the smoothness of the tool before migrating all data...not like the others...',
+      cta: "Ok, let's try",
+      type: 'demo',
     },
-    onSuccess: ({ data }) => {
-      toast.success('Item created', { id: toastRef.current });
-      toastRef.current = undefined;
-      router.refresh();
-      if (data) {
-        router.push(`/private-item/${data}`);
+    {
+      title: 'Full migration',
+      description:
+        'Migrate all data from your current Woocomerce store to the new store',
+      cta: "Let's do it",
+      type: 'full',
+    },
+  ];
+
+  useEffect(() => {
+    getUserFullMigrationsPending().then((migration) => {
+      if (migration) {
+        setShowAlert(true);
       }
-    },
-    onError: ({ error }) => {
-      const errorMessage =
-        error.serverError ?? error.fetchError ?? 'Failed to create item';
-      toast.error(errorMessage, { id: toastRef.current });
-      toastRef.current = undefined;
-    },
-  });
+    });
+  }, []);
 
-  const onSubmit = (data: FormData) => {
-    execute(data);
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, x: 0, y: 100 }}
+        animate={{ opacity: 1, x: 0, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="	p-4 mt-4"
+      >
+        {showAlert ? (
+          <Alert>
+            <AlertTitle>You have a pending Full Migration!</AlertTitle>
+            <AlertDescription>
+              This is just a friendly reminder pal
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert>
+            <T.Large>Get a a special deal for our lunch 🎉</T.Large>
+            <T.P className="text-sm">
+              In exchange for your feedback<b> pay 10$ instead of 50$ </b>
+              the discount will be applied automatically
+            </T.P>
+          </Alert>
+        )}
+      </motion.div>
+      <div className="flex w-full justify-center items-center flex-wrap">
+        {migrationOptions.map((option, index) => (
+          <OptionCard
+            key={index}
+            title={option.title}
+            description={option.description}
+            cta={option.cta}
+            type={option.type}
+          />
+        ))}
+        <FeedbackButton />
+      </div>
+    </>
+  );
+};
+
+const FeedbackButton = () => {
+  const router = useRouter();
+
+  const handleFeedbackClick = () => {
+    router.push('/feedback'); // Redirect to the feedback page
+  };
+
+  return (
+    <button
+      onClick={handleFeedbackClick}
+      className="fixed bottom-5 right-5 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-transform transform hover:scale-105"
+      aria-label="Give Feedback"
+    >
+      📝 Feedback
+    </button>
+  );
+};
+
+interface OptionCardProps {
+  title: string;
+  description?: string;
+  cta?: string;
+  type: migrationType;
+}
+
+const OptionCard: React.FC<OptionCardProps> = ({
+  title,
+  description,
+  cta,
+  type,
+}: OptionCardProps) => {
+  const router = useRouter();
+  const { setMigrationType } = useMigrationContext();
+  const { getUserFullMigrationsPending } = useMigration();
+  const posthog = usePostHog();
+
+  const handleMigrationClick = async (type: migrationType) => {
+    setMigrationType(type);
+
+    if (type === 'demo') {
+      posthog.capture('choose_migration_demo', { migration_type: 'demo' });
+      router.push(`/migrate/`);
+      return;
+    }
+
+    if (type === 'full') {
+      posthog.capture('choose_migration_full', { migration_type: 'full' });
+      const migration = await getUserFullMigrationsPending();
+      router.push(migration ? `/migrate/` : `/payment/`);
+    }
   };
 
   return (
     <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={formVariants}
-      className="container mx-auto p-4"
+      initial={{ opacity: 0, x: 0, y: 100 }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="	p-4 mt-4"
     >
-      <Card className="w-full max-w-md mx-auto">
+      <Card className="w-50 max-w-md mx-auto">
         <CardHeader>
           <CardTitle>
-            <T.H2>Create Private Item</T.H2>
+            <T.H2>{title}</T.H2>
           </CardTitle>
-          <CardDescription>
-            <T.Subtle>
-              This item will be private and only you logged in will be able to
-              create it.
-            </T.Subtle>
-          </CardDescription>
+          <T.Subtle>{description ?? 'Description'}</T.Subtle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <motion.div variants={inputVariants} className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                {...register('name')}
-                id="name"
-                placeholder="Enter item name"
-              />
-              {errors.name && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.name.message}
-                </p>
-              )}
-            </motion.div>
-            <motion.div variants={inputVariants} className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                {...register('description')}
-                id="description"
-                placeholder="Enter item description"
-                rows={4}
-              />
-              {errors.description && (
-                <p className="text-red-500 text-sm mt-1">
-                  {errors.description.message}
-                </p>
-              )}
-            </motion.div>
-            <motion.div
-              variants={inputVariants}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              className="w-full"
+              variant="default"
+              onClick={() => handleMigrationClick(type)}
             >
-              <Button
-                className="w-full"
-                variant="default"
-                type="submit"
-                disabled={status === 'executing' || !isValid}
-              >
-                {status === 'executing' ? 'Creating Item...' : 'Create Item'}
-              </Button>
-            </motion.div>
-          </form>
+              {cta ?? 'Enter'}
+            </Button>
+          </motion.div>
         </CardContent>
       </Card>
     </motion.div>

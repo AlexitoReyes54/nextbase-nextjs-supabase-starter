@@ -54,7 +54,7 @@ export const signInWithPasswordAction = actionClient
   .action(async ({ parsedInput: { email, password } }) => {
     const supabase = createSupabaseClient();
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -64,6 +64,7 @@ export const signInWithPasswordAction = actionClient
     }
 
     // No need to return anything if the operation is successful
+    return data;
   });
 
 const signInWithMagicLinkSchema = z.object({

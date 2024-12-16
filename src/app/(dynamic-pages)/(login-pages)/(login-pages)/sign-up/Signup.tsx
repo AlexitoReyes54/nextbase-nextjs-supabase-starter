@@ -46,12 +46,12 @@ export function SignUp({ next }: SignUpProps) {
         toastRef.current = undefined;
         setSuccessMessage('A magic link has been sent to your email!');
       },
-      onError: ({ error }) => {
-        const errorMessage =
-          error.serverError ?? error.fetchError ?? 'Failed to send magic link';
-        toast.error(errorMessage, { id: toastRef.current });
-        toastRef.current = undefined;
-      },
+      // onError: ({ error }) => {
+      //   const errorMessage =
+      //     // error.serverError ?? error.validationErrors?.fetchError ?? 'Failed to send magic link';
+      //     toast.error(errorMessage, { id: toastRef.current });
+      //   // toastRef.current = undefined;
+      // },
     }
   );
 
@@ -68,8 +68,8 @@ export function SignUp({ next }: SignUpProps) {
       },
       onError: ({ error }) => {
         const errorMessage =
-          error.serverError ?? error.fetchError ?? 'Failed to create account';
-        toast.error(errorMessage, { id: toastRef.current });
+          // error.serverError ?? error.fetchError ?? 'Failed to create account';
+          toast.error('Failed to create account', { id: toastRef.current });
         toastRef.current = undefined;
       },
     }
@@ -90,8 +90,8 @@ export function SignUp({ next }: SignUpProps) {
       },
       onError: ({ error }) => {
         const errorMessage =
-          error.serverError ?? error.fetchError ?? 'Failed to login';
-        toast.error(errorMessage, { id: toastRef.current });
+          // error.serverError ?? error.fetchError ?? 'Failed to login';
+          toast.error('Failed to login', { id: toastRef.current });
         toastRef.current = undefined;
       },
     }
@@ -114,14 +114,18 @@ export function SignUp({ next }: SignUpProps) {
           <Tabs defaultValue="password" className="md:min-w-[400px]">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="password">Password</TabsTrigger>
-              <TabsTrigger value="magic-link">Magic Link</TabsTrigger>
-              <TabsTrigger value="social-login">Social Login</TabsTrigger>
+              <TabsTrigger value="magic-link" disabled={true}>
+                Magic Link
+              </TabsTrigger>
+              <TabsTrigger value="social-login" disabled={true}>
+                Social Login
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="password">
               <Card className="border-none shadow-none">
                 <CardHeader className="py-6 px-0">
-                  <CardTitle>Register to NextBase</CardTitle>
+                  <CardTitle>Register to Nomad</CardTitle>
                   <CardDescription>
                     Create an account with your email and password
                   </CardDescription>

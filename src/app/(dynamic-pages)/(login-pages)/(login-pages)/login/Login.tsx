@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUserContext } from '@/contexts/UserContext';
 import {
   signInWithMagicLinkAction,
   signInWithPasswordAction,
@@ -19,21 +20,18 @@ import {
 } from '@/data/auth/auth';
 import { useAction } from 'next-safe-action/hooks';
 import { useRouter } from 'next/navigation';
+import { usePostHog } from 'posthog-js/react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-export function Login({
-  next,
-  nextActionType,
-}: {
-  next?: string;
-  nextActionType?: string;
-}) {
+export function Login({ next }: { next?: string; nextActionType?: string }) {
   const [emailSentSuccessMessage, setEmailSentSuccessMessage] = useState<
     string | null
   >(null);
   const [redirectInProgress, setRedirectInProgress] = useState(false);
   const toastRef = useRef<string | number | undefined>(undefined);
+  const { setUserId } = useUserContext();
+  const posthog = usePostHog();
 
   const router = useRouter();
 
@@ -77,7 +75,19 @@ export function Login({
       onExecute: () => {
         toastRef.current = toast.loading('Logging in...');
       },
-      onSuccess: () => {
+      onSuccess: (data) => {
+        setUserId(data.data?.user.id);
+        posthog.identify(data.data?.user.id);
+
+        posthog.people.set({
+          email: data.data?.user.email,
+          uuid: data.data?.user.id,
+        });
+
+        posthog.capture('$login', {
+          method: 'password',
+        });
+
         toast.success('Logged in!', {
           id: toastRef.current,
         });
@@ -142,13 +152,17 @@ export function Login({
           <Tabs defaultValue="password" className="md:min-w-[400px]">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="password">Password</TabsTrigger>
-              <TabsTrigger value="magic-link">Magic Link</TabsTrigger>
-              <TabsTrigger value="social-login">Social Login</TabsTrigger>
+              <TabsTrigger value="magic-link" disabled={true}>
+                Magic Link
+              </TabsTrigger>
+              <TabsTrigger value="social-login" disabled={true}>
+                Social Login
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="password">
               <Card className="border-none shadow-none">
                 <CardHeader className="py-6 px-0">
-                  <CardTitle>Login to NextBase</CardTitle>
+                  <CardTitle>Login to Nomad</CardTitle>
                   <CardDescription>
                     Login with the account you used to signup.
                   </CardDescription>
